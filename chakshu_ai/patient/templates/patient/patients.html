@@ -1,0 +1,240 @@
+{% extends '_base.html' %}
+
+{% block title %}Patients - Chákshu AI{% endblock %}
+
+{% block content %}
+<div class="flex h-screen bg-gray-50">
+    <!-- Side Navigation -->
+    <div class="w-64 bg-white shadow-lg">
+        <nav class="mt-5">
+            <a href="{% url 'patient:patients' %}" 
+               class="flex items-center px-4 py-3 text-sm font-medium text-indigo-600 bg-indigo-50 border-l-4 border-indigo-600">
+                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"></path>
+                </svg>
+                Patients
+            </a>
+            <a href="{% url 'patient:register_patient' %}" 
+               class="flex items-center px-4 py-3 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors duration-200">
+                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z"></path>
+                </svg>
+                Register Patient
+            </a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 overflow-y-auto">
+        <div class="container mx-auto px-6 py-8">
+            <div class="flex justify-between items-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-900">All Patients</h1>
+                <a href="{% url 'patient:register_patient' %}" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Add New Patient
+                </a>
+            </div>
+            
+            <!-- Advanced Search and Filters -->
+            <div class="bg-white p-4 rounded-lg shadow-sm mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                        <label for="search" class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                </svg>
+                            </div>
+                            <input type="text" id="search" placeholder="Search by name, ID, or email..." 
+                                   class="pl-10 w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="gender-filter" class="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                        <select id="gender-filter" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                            <option value="">All Genders</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="age-filter" class="block text-sm font-medium text-gray-700 mb-1">Age Range</label>
+                        <select id="age-filter" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                            <option value="">All Ages</option>
+                            <option value="0-18">0-18 years</option>
+                            <option value="19-30">19-30 years</option>
+                            <option value="31-50">31-50 years</option>
+                            <option value="51+">51+ years</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-end">
+                    <button id="resetBtn" class="mr-3 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Reset Filters
+                    </button>
+                    <button id="searchBtn" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Apply Filters
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Patient List Table -->
+            <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Patient Details
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Age
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Gender
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Contact Information
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Actions
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200" id="patientList">
+                            {% for patient in patients %}
+                            <tr class="hover:bg-gray-50 transition-colors duration-200">
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0 h-10 w-10">
+                                            <span class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-indigo-100">
+                                                <span class="text-lg font-medium leading-none text-indigo-700">{{ patient.name|slice:":1" }}</span>
+                                            </span>
+                                        </div>
+                                        <div class="ml-4">
+                                            <div class="text-sm font-medium text-gray-900">{{ patient.name }}</div>
+                                            <div class="text-sm text-gray-500">ID: {{ patient.id }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                        {{ patient.age }} years
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                        {% if patient.gender == 'Male' %}bg-blue-100 text-blue-800
+                                        {% elif patient.gender == 'Female' %}bg-pink-100 text-pink-800
+                                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                        {{ patient.gender }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="text-sm text-gray-900">{{ patient.contact_number }}</div>
+                                    <div class="text-sm text-gray-500">{{ patient.email }}</div>
+                                </td>
+                                <td class="px-6 py-4 text-sm font-medium">
+                                    <div class="flex space-x-2">
+                                        <button class="text-indigo-600 hover:text-indigo-900" title="View Details">
+                                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                            </svg>
+                                        </button>
+                                        <button class="text-indigo-600 hover:text-indigo-900" title="Edit">
+                                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">
+                                    <div class="flex flex-col items-center justify-center py-8">
+                                        <svg class="h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                                        </svg>
+                                        <p>No patients registered yet.</p>
+                                        <a href="{% url 'patient:register_patient' %}" class="mt-2 text-indigo-600 hover:text-indigo-500">
+                                            Register your first patient →
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('search');
+        const genderFilter = document.getElementById('gender-filter');
+        const ageFilter = document.getElementById('age-filter');
+        const searchBtn = document.getElementById('searchBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const patientList = document.getElementById('patientList');
+
+        searchBtn.addEventListener('click', filterPatients);
+        resetBtn.addEventListener('click', resetFilters);
+        
+        function filterPatients() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const genderValue = genderFilter.value.toLowerCase();
+            const ageRange = ageFilter.value;
+            const rows = patientList.getElementsByTagName('tr');
+
+            for (let row of rows) {
+                if (row.cells.length < 4) continue; // Skip empty state row
+
+                const details = row.cells[0].innerText.toLowerCase(); // Includes name and ID
+                const age = parseInt(row.cells[1].innerText);
+                const gender = row.cells[2].innerText.toLowerCase();
+                const contact = row.cells[3].innerText.toLowerCase();
+
+                // Check if matches search term
+                const matchesSearch = searchTerm === '' || 
+                    details.includes(searchTerm) || 
+                    contact.includes(searchTerm);
+
+                // Check if matches gender filter
+                const matchesGender = genderValue === '' || gender.includes(genderValue);
+
+                // Check if matches age range
+                let matchesAge = true;
+                if (ageRange !== '') {
+                    const [min, max] = ageRange === '51+' ? [51, 150] : ageRange.split('-').map(Number);
+                    matchesAge = age >= min && age <= max;
+                }
+
+                row.style.display = (matchesSearch && matchesGender && matchesAge) ? '' : 'none';
+            }
+        }
+
+        function resetFilters() {
+            searchInput.value = '';
+            genderFilter.value = '';
+            ageFilter.value = '';
+            const rows = patientList.getElementsByTagName('tr');
+            for (let row of rows) {
+                row.style.display = '';
+            }
+        }
+
+        // Enable filtering on input change
+        [searchInput, genderFilter, ageFilter].forEach(element => {
+            element.addEventListener('input', filterPatients);
+        });
+    });
+</script>
+{% endblock %}
