@@ -1,97 +1,211 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+import json
+from django.db.models import Q
 from .image_processing import call_llm_api
+from .models import Conversation, Message
+from patient.models import Patient
 import numpy as np
 import base64
 from io import BytesIO
 from PIL import Image
 
 @login_required
+@require_http_methods(["POST"])
+def new_conversation(request):
+    try:
+        data = json.loads(request.body)
+        patient_id = data.get('patient_id')
+        if not patient_id:
+            return JsonResponse({'error': 'Patient ID is required'}, status=400)
+        
+        patient = get_object_or_404(Patient, id=patient_id)
+        conversation = Conversation.objects.create(
+            patient=patient,
+            title=f"Analysis Session {Conversation.objects.filter(patient=patient).count() + 1}"
+        )
+        request.session['active_conversation'] = conversation.id
+        
+        return JsonResponse({
+            'id': conversation.id,
+            'start_time': conversation.start_time.isoformat()
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+@require_http_methods(["POST"])
+def clear_conversation(request):
+    request.session.pop('active_conversation', None)
+    return JsonResponse({'status': 'success'})
+
+@login_required
+def search_patients(request):
+    term = request.GET.get('term', '')
+    if len(term) < 2:
+        return JsonResponse([], safe=False)
+    
+    patients = Patient.objects.filter(
+        Q(name__icontains=term) | Q(id__icontains=term)
+    )[:10]
+    
+    return JsonResponse([{
+        'id': patient.id,
+        'name': patient.name,
+    } for patient in patients], safe=False)
+
+@login_required
+def patient_details(request, patient_id):
+    patient = get_object_or_404(Patient, id=patient_id)
+    return JsonResponse({
+        'id': patient.id,
+        'name': patient.name,
+        'age': patient.age,
+        'gender': patient.gender,
+        'contact_number': patient.contact_number,
+    })
+
+@login_required
+def patient_conversations(request, patient_id):
+    conversations = Conversation.objects.filter(patient_id=patient_id)
+    return JsonResponse([{
+        'id': conv.id,
+        'title': conv.title,
+        'start_time': conv.start_time.isoformat(),
+    } for conv in conversations], safe=False)
+
+@login_required
+def get_conversation(request, conversation_id):
+    conversation = get_object_or_404(Conversation, id=conversation_id)
+    messages = conversation.messages.all()
+    return JsonResponse([{
+        'message_type': msg.message_type,
+        'text': msg.text,
+        'image': msg.image,
+        'timestamp': msg.timestamp.isoformat(),
+    } for msg in messages], safe=False)
+
+@login_required
 @require_http_methods(["GET", "POST"])
 def analysis_view(request):
-    # Initialize conversation if it doesn't exist
-    if request.method == "GET":
-        request.session['conversation'] = []
-        request.session.modified = True
-
-    conversation = request.session.get('conversation', [])
-    
     if request.method == "POST":
+        patient_id = request.POST.get('patient_id')
+        if not patient_id:
+            # Get current conversation context
+            conversation_id = request.session.get('active_conversation')
+            conversation_messages = []
+            if conversation_id:
+                try:
+                    conversation = Conversation.objects.get(id=conversation_id)
+                    conversation_messages = [{
+                        'type': msg.message_type,
+                        'text': msg.text,
+                        'image': msg.image
+                    } for msg in conversation.messages.all()]
+                except Conversation.DoesNotExist:
+                    pass
+
+            context = {
+                'conversation': conversation_messages,
+                'error_message': 'Please select a patient first',
+                'should_scroll': False
+            }
+            return render(request, 'analysis/analysis.html', context)
+        
+        patient = get_object_or_404(Patient, id=patient_id)
+        conversation = None
+    
+        # Get active conversation or create new one
+        conversation_id = request.session.get('active_conversation')
+        if conversation_id:
+            try:
+                conversation = Conversation.objects.get(id=conversation_id)
+            except Conversation.DoesNotExist:
+                conversation = None
+        
+        if not conversation:
+            conversation = Conversation.objects.create(
+                patient=patient,
+                title=f"Analysis Session {Conversation.objects.filter(patient=patient).count() + 1}"
+            )
+            request.session['active_conversation'] = conversation.id
+
         image = request.FILES.get('image')
         prompt = request.POST.get('prompt')
         image_b64 = None
-        user_message = {
-                'type': 'user',
-                'text': "",
-                'image': None
-            }
-        
-        if prompt:  # Allow messages without images
-            # Create user message
-            user_message['text'] = prompt
-        # Process image if provided
+
+        # Create user message
+        user_message = Message(
+            conversation=conversation,
+            message_type='user',
+            text=prompt or ""
+        )
+
         if image:
             # Convert uploaded image to base64 for display
             image_data = image.read()
             image_b64 = base64.b64encode(image_data).decode()
-            user_message['image'] = image_b64
-            
-            # Reset file pointer for processing
+            user_message.image = image_b64
             image.seek(0)
 
-        api_result = call_llm_api(prompt, image_b64, conversation)
+        user_message.save()
 
-        # # Handle different use cases
-        # # 1. Image and prompt
-        # # 2. Image and no prompt (welcome message)
-        # # 3. No image and prompt (follow-up question using previous image)
-        # if image_b64 and prompt:
-        #     # Case 1: Both image and prompt
-        #     api_result = call_llm_api(prompt, image_b64, conversation)
-        # elif image_b64 and not prompt:
-        #     # Case 2: Only image - show welcome message
-        #     api_result = call_llm_api(None, image_b64, conversation)
-        # elif prompt and not image_b64:
-        #     # Case 3: Only prompt - use last image from conversation if available
-            
-        # else:
-        #     # No image and no prompt - shouldn't happen due to form validation
-        #     api_result = {"text": "Please provide an image or a question.", "image": None}
+        # Get conversation history for API
+        conversation_history = [{
+            'type': msg.message_type,
+            'text': msg.text,
+            'image': msg.image
+        } for msg in conversation.messages.all()]
+
+        api_result = call_llm_api(prompt, image_b64, conversation_history)
+
             
             
             
         # Create assistant message
-        assistant_message = {
-            'type': 'assistant',
-            'text': api_result.get('text'),
-            'image': None
-        }
-            
+        assistant_message = Message(
+            conversation=conversation,
+            message_type='assistant',
+            text=api_result.get('text')
+        )
+
         # Convert processed image if exists
         if api_result.get('image') is not None:
             img = Image.fromarray(api_result['image'])
             buffer = BytesIO()
             img.save(buffer, format='PNG')
-            assistant_message['image'] =   base64.b64encode(buffer.getvalue()).decode()
-        
-        # Update conversation history
-        conversation.extend([user_message, assistant_message])
-        request.session['conversation'] = conversation
-        request.session.modified = True
-        
-        # Force session save
-        request.session.save()
+            assistant_message.image = base64.b64encode(buffer.getvalue()).decode()
+
+        assistant_message.save()
+
+        # Get updated messages for display
+        messages = conversation.messages.all()
+        # Get patient details for repopulation
+        patient_details = {
+            'id': patient.id,
+            'name': patient.name,
+            'age': patient.age,
+            'gender': patient.gender,
+            'contact_number': patient.contact_number,
+        }
         
         context = {
-            'conversation': conversation,
-            'last_result': assistant_message,
-            'should_scroll': True
+            'conversation': [{
+                'type': msg.message_type,
+                'text': msg.text,
+                'image': msg.image
+            } for msg in messages],
+            'should_scroll': True,
+            'patient_id': patient_id,
+            'patient_details': patient_details
         }
         return render(request, 'analysis/analysis.html', context)
-    
-    context = {
-        'conversation': conversation,
+
+    # GET request - always start with a clean slate
+    request.session.pop('active_conversation', None)
+    return render(request, 'analysis/analysis.html', {
+        'conversation': [],
         'should_scroll': False
-    }
-    return render(request, 'analysis/analysis.html', context)
+    })

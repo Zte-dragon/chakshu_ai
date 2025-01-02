@@ -1,13 +1,65 @@
 {% extends "_base.html" %}
 
 {% block content %}
-<div class="flex flex-col h-screen bg-gray-50">
-    <header class="bg-white shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <!-- <h1 class="text-2xl font-bold text-gray-900">Retinal Image Analysis</h1> -->
-            <p class="text-sm text-gray-600">AI-powered analysis for medical professionals</p>
+<div class="flex h-screen bg-gray-50">
+    <!-- Drawer toggle button -->
+    <button id="drawer-toggle" type="button" class="lg:hidden inline-flex items-center p-2 mt-2 ml-3 text-sm text-gray-500 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200" aria-controls="drawer-navigation" data-drawer-target="drawer-navigation" data-drawer-toggle="drawer-navigation" aria-expanded="false">
+        <span class="sr-only">Open sidebar</span>
+        <svg class="w-6 h-6" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+            <path clip-rule="evenodd" fill-rule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zm0 10.5a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5a.75.75 0 01-.75-.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10z"></path>
+        </svg>
+    </button>
+
+    <!-- Side Panel -->
+    <div id="drawer-navigation" class="fixed top-16 left-0 z-30 w-80 h-[calc(100vh-4rem)] lg:translate-x-0 -translate-x-full transition-transform bg-white border-r border-gray-200 flex flex-col" tabindex="-1" aria-labelledby="drawer-navigation-label">
+        <div class="flex flex-col h-full overflow-hidden">
+            <!-- Search Section -->
+            <div class="p-4 border-b border-gray-200">
+                <div class="mb-4">
+                    <input type="text" 
+                           id="patient-search" 
+                           placeholder="Search patient by name or ID..." 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div id="search-results" class="max-h-48 overflow-y-auto"></div>
+            </div>
+
+            <!-- Patient Details Section -->
+            <div id="patient-details" class="p-4 border-b border-gray-200 hidden">
+                <h3 class="text-lg font-semibold mb-2">Patient Details</h3>
+                <div class="space-y-2 text-sm">
+                    <p><span class="font-medium">ID:</span> <span id="patient-id"></span></p>
+                    <p><span class="font-medium">Name:</span> <span id="patient-name"></span></p>
+                    <p><span class="font-medium">Age:</span> <span id="patient-age"></span></p>
+                    <p><span class="font-medium">Gender:</span> <span id="patient-gender"></span></p>
+                    <p><span class="font-medium">Contact:</span> <span id="patient-contact"></span></p>
+                </div>
+            </div>
+
+            <!-- Conversations List -->
+            <div class="flex-1 overflow-y-auto">
+                <div class="p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold">Conversations</h3>
+                        <button onclick="startNewConversation()" class="text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-300 font-medium rounded-lg text-sm px-3 py-1.5 focus:outline-none">
+                            New
+                        </button>
+                    </div>
+                    <div id="conversations-list" class="space-y-2">
+                        <!-- Conversations will be populated here -->
+                    </div>
+                </div>
+            </div>
         </div>
-    </header>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col lg:ml-80">
+        <header class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                <p class="text-sm text-gray-600">AI-powered analysis for medical professionals</p>
+            </div>
+        </header>
 
     <!-- Loading Animation -->
     <div id="loading-animation" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
@@ -18,6 +70,13 @@
     </div>
 
     <div class="flex-1 overflow-y-auto px-4 py-4" id="chat-messages">
+        {% if error_message %}
+        <div class="max-w-3xl mx-auto mb-4">
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                <span class="block sm:inline">{{ error_message }}</span>
+            </div>
+        </div>
+        {% endif %}
         <div class="max-w-3xl mx-auto space-y-4 mb-24">
             {% for message in conversation %}
                 {% if message.type == 'user' %}
@@ -43,10 +102,11 @@
         </div>
     </div>
 
-    <div class="fixed bottom-4 left-0 right-0 px-4">
+    <div class="fixed bottom-4 left-0 right-0 px-4 lg:ml-80">
         <div class="max-w-3xl mx-auto">
             <form method="post" enctype="multipart/form-data" class="bg-white rounded-lg shadow-lg p-4">
                 {% csrf_token %}
+                <input type="hidden" name="patient_id" id="selected-patient-id">
                 <div class="flex items-center gap-2 mb-2">
                     <label for="image-upload" class="cursor-pointer flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-md border border-gray-300 hover:border-indigo-500 hover:bg-indigo-50 transition-colors">
                         <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -68,9 +128,232 @@
             </form>
         </div>
     </div>
+    </div>
 </div>
 
+<!-- Add backdrop for mobile -->
+<div id="drawer-backdrop" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-30 hidden lg:hidden" aria-hidden="true"></div>
+
+{{ patient_id|json_script:"patient-id-data" }}
+{{ patient_details|json_script:"patient-details-data" }}
+
 <script>
+    // Initialize drawer functionality
+    const drawerToggle = document.getElementById('drawer-toggle');
+    const drawer = document.getElementById('drawer-navigation');
+    const backdrop = document.getElementById('drawer-backdrop');
+
+    function toggleDrawer() {
+        drawer.classList.toggle('-translate-x-full');
+        backdrop.classList.toggle('hidden');
+    }
+
+    drawerToggle.addEventListener('click', toggleDrawer);
+    backdrop.addEventListener('click', toggleDrawer);
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        if (window.innerWidth >= 1024) { // lg breakpoint
+            drawer.classList.remove('-translate-x-full');
+            backdrop.classList.add('hidden');
+        } else {
+            drawer.classList.add('-translate-x-full');
+        }
+    });
+
+    // New conversation function
+    async function startNewConversation() {
+        if (!selectedPatientId) {
+            alert('Please select a patient first');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/analysis/new_conversation/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({ patient_id: selectedPatientId })
+            });
+            
+            if (response.ok) {
+                // Reload conversations list
+                loadConversations(selectedPatientId);
+                // Clear chat messages
+                document.getElementById('chat-messages').innerHTML = '';
+            }
+        } catch (error) {
+            console.error('Error starting new conversation:', error);
+        }
+    }
+
+    let selectedPatientId = null;
+    const patientIdData = document.getElementById('patient-id-data');
+    if (patientIdData) {
+        selectedPatientId = JSON.parse(patientIdData.textContent);
+    }
+    
+    // Initialize patient details if available
+    const patientDetailsData = document.getElementById('patient-details-data');
+    document.addEventListener('DOMContentLoaded', function() {
+        if (patientDetailsData && patientDetailsData.textContent) {
+            try {
+                const patientDetails = JSON.parse(patientDetailsData.textContent);
+                // Only show and populate details if we have valid patient data
+                if (patientDetails && patientDetails.id) {
+                    document.getElementById('patient-details').classList.remove('hidden');
+                    document.getElementById('patient-id').textContent = patientDetails.id;
+                    document.getElementById('patient-name').textContent = patientDetails.name;
+                    document.getElementById('patient-age').textContent = patientDetails.age;
+                    document.getElementById('patient-gender').textContent = patientDetails.gender;
+                    document.getElementById('patient-contact').textContent = patientDetails.contact_number;
+                    document.getElementById('selected-patient-id').value = patientDetails.id;
+                    loadConversations(patientDetails.id);
+                }
+            } catch (error) {
+                console.error('Error parsing patient details:', error);
+                // Keep patient details hidden if there's an error
+                document.getElementById('patient-details').classList.add('hidden');
+            }
+        }
+    });
+
+    // Patient search functionality
+    const patientSearch = document.getElementById('patient-search');
+    patientSearch.addEventListener('input', debounce(async (e) => {
+        const searchTerm = e.target.value;
+        if (searchTerm.length < 2) {
+            document.getElementById('search-results').innerHTML = '';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/analysis/search_patients/?term=${encodeURIComponent(searchTerm)}`);
+            const patients = await response.json();
+            
+            const resultsHtml = patients.map(patient => `
+                <div class="p-2 hover:bg-gray-100 cursor-pointer rounded-md" 
+                     onclick="selectPatient(${patient.id})">
+                    <div class="font-medium">${patient.name}</div>
+                    <div class="text-xs text-gray-600">ID: ${patient.id}</div>
+                </div>
+            `).join('');
+            
+            document.getElementById('search-results').innerHTML = resultsHtml;
+        } catch (error) {
+            console.error('Error searching patients:', error);
+        }
+    }, 300));
+
+    // Patient selection and details
+    async function selectPatient(patientId) {
+        if (!patientId) return;
+        
+        selectedPatientId = patientId;
+        document.getElementById('selected-patient-id').value = patientId;
+        try {
+            const response = await fetch(`/analysis/patient_details/${patientId}/`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const patient = await response.json();
+            
+            // Only show and update details if we have valid patient data
+            if (patient && patient.id) {
+                document.getElementById('patient-details').classList.remove('hidden');
+                document.getElementById('patient-id').textContent = patient.id;
+                document.getElementById('patient-name').textContent = patient.name;
+                document.getElementById('patient-age').textContent = patient.age;
+                document.getElementById('patient-gender').textContent = patient.gender;
+                document.getElementById('patient-contact').textContent = patient.contact_number;
+            } else {
+                document.getElementById('patient-details').classList.add('hidden');
+            }
+            
+            // Clear search
+            document.getElementById('patient-search').value = '';
+            document.getElementById('search-results').innerHTML = '';
+            
+            // Clear chat messages and active conversation
+            document.getElementById('chat-messages').innerHTML = '';
+            fetch('/analysis/clear_conversation/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            });
+            // Load conversations
+            loadConversations(patientId);
+        } catch (error) {
+            console.error('Error fetching patient details:', error);
+        }
+    }
+
+    // Load patient conversations
+    async function loadConversations(patientId) {
+        try {
+            const response = await fetch(`/analysis/patient_conversations/${patientId}/`);
+            const conversations = await response.json();
+            
+            const conversationsHtml = conversations.map(conv => `
+                <div class="p-3 bg-white rounded-lg shadow-sm hover:shadow-md cursor-pointer transition-shadow"
+                     onclick="loadConversation(${conv.id})">
+                    <div class="font-medium text-sm">${conv.title || 'Conversation'}</div>
+                    <div class="text-xs text-gray-600">${new Date(conv.start_time).toLocaleString()}</div>
+                </div>
+            `).join('');
+            
+            document.getElementById('conversations-list').innerHTML = conversationsHtml;
+            
+            // Scroll to the top of the conversations list
+            const conversationsContainer = document.querySelector('#drawer-navigation .overflow-y-auto');
+            if (conversationsContainer) {
+                conversationsContainer.scrollTop = 0;
+            }
+        } catch (error) {
+            console.error('Error loading conversations:', error);
+        }
+    }
+
+    // Load specific conversation
+    async function loadConversation(conversationId) {
+        try {
+            const response = await fetch(`/analysis/conversation/${conversationId}/`);
+            const messages = await response.json();
+            
+            // Update the chat messages
+            const chatHtml = messages.map(msg => `
+                <div class="flex ${msg.message_type === 'user' ? 'justify-end' : 'justify-start'} mb-4">
+                    <div class="${msg.message_type === 'user' ? 'bg-gray-500 text-white' : 'bg-white text-gray-800'} rounded-lg px-4 py-3 max-w-md shadow-lg">
+                        <p class="text-sm">${msg.message_type === 'user' ? 'User: ' : 'Chakshu AI: '}${msg.text}</p>
+                        ${msg.image ? `<img src="data:image/png;base64,${msg.image}" alt="${msg.message_type} image" class="mt-2 rounded-md max-h-48 w-auto object-contain">` : ''}
+                    </div>
+                </div>
+            `).join('');
+            
+            document.getElementById('chat-messages').innerHTML = chatHtml;
+            scrollToBottom();
+        } catch (error) {
+            console.error('Error loading conversation:', error);
+        }
+    }
+
+    // Utility function for debouncing
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
     function updateFileLabel(input) {
         const label = document.getElementById('file-label');
         label.textContent = input.files.length > 0 ? input.files[0].name : '';
@@ -103,10 +386,123 @@
 
     document.querySelector('textarea[name="prompt"]').addEventListener('input', adjustTextareaHeight);
 
-    document.querySelector('form').addEventListener('submit', (e) => {
+    // Handle form submission with AJAX
+    document.querySelector('form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        // Show loading animation immediately
         const loadingAnimation = document.getElementById('loading-animation');
-        loadingAnimation.classList.remove('hidden');
-        setTimeout(scrollToBottom, 100);
+        if (!loadingAnimation.classList.contains('hidden')) {
+            // If loading animation is already showing, don't submit another request
+            return;
+        }
+        
+        if (!selectedPatientId) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'max-w-3xl mx-auto mb-4';
+            errorDiv.innerHTML = `
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                    <span class="block sm:inline">Please select a patient first</span>
+                </div>
+            `;
+            const chatMessages = document.getElementById('chat-messages');
+            chatMessages.insertBefore(errorDiv, chatMessages.firstChild);
+            return;
+        }
+
+        // Show loading animation before any async operations
+        showLoadingAnimation();
+        
+        // Add user message to chat immediately
+        const form = e.target;
+        const prompt = form.querySelector('textarea[name="prompt"]').value;
+        const chatMessages = document.getElementById('chat-messages').querySelector('.max-w-3xl');
+        const userMessageHtml = `
+            <div class="flex justify-end mb-4">
+                <div class="bg-gray-500 text-white rounded-lg px-4 py-3 max-w-md shadow-lg">
+                    <p class="text-sm">User: ${prompt}</p>
+                </div>
+            </div>
+        `;
+        chatMessages.insertAdjacentHTML('beforeend', userMessageHtml);
+        scrollToBottom();
+        
+        try {
+            const form = e.target;
+            const formData = new FormData(form);
+            
+            const response = await fetch(window.location.pathname, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            });
+            
+            const html = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            // Update chat messages
+            const newChatMessages = doc.getElementById('chat-messages');
+            if (newChatMessages) {
+                document.getElementById('chat-messages').innerHTML = newChatMessages.innerHTML;
+            }
+            
+            // Clear the form
+            form.reset();
+            document.getElementById('file-label').textContent = '';
+            
+            // Scroll to bottom
+            scrollToBottom();
+        } catch (error) {
+            console.error('Error submitting form:', error);
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'max-w-3xl mx-auto mb-4';
+            errorDiv.innerHTML = `
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                    <span class="block sm:inline">An error occurred while processing your request</span>
+                </div>
+            `;
+            const chatMessages = document.getElementById('chat-messages');
+            chatMessages.insertBefore(errorDiv, chatMessages.firstChild);
+        } finally {
+            hideLoadingAnimation();
+        }
     });
+
+    let isProcessing = false;
+
+    function showLoadingAnimation() {
+        if (!isProcessing) {
+            isProcessing = true;
+            const loadingAnimation = document.getElementById('loading-animation');
+            loadingAnimation.classList.remove('hidden');
+            setTimeout(scrollToBottom, 100);
+        }
+    }
+
+    function hideLoadingAnimation() {
+        isProcessing = false;
+        const loadingAnimation = document.getElementById('loading-animation');
+        loadingAnimation.classList.add('hidden');
+    }
+
+    // Add loading animation for AJAX requests
+    const originalFetch = window.fetch;
+    window.fetch = function() {
+        const url = arguments[0];
+        // Only show loading for specific endpoints
+        if (typeof url === 'string' && (
+            url.includes('/analysis/conversation/') || 
+            url.includes('/analysis/new_conversation/') ||
+            url.includes('/analysis/patient_conversations/')
+        )) {
+            showLoadingAnimation();
+            return originalFetch.apply(this, arguments)
+                .finally(hideLoadingAnimation);
+        }
+        return originalFetch.apply(this, arguments);
+    };
 </script>
 {% endblock %}
