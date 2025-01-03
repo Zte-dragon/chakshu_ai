@@ -9,7 +9,9 @@ import torch
 import segmentation_models_pytorch as smp
 from torchvision import transforms
 import base64
-
+GeneralPathologyModel_path = 'model_weights/flair_resnet.pth'
+ratinasegmentationmodel_path = "model_weights/best.pt"
+ratina_vessel_state_dict = "model_weights/ratina_vessel_state_dict.pth"
 class BaseModel(ABC):
     def __init__(self, name):
         self.name = name
@@ -38,7 +40,7 @@ class BaseModel(ABC):
 class RetinaSegmentationModel(BaseModel):
     def __init__(self):
         super().__init__("Retina Segmentation")
-        self.model = YOLO('/home/sasi/retina/best.pt')
+        self.model = YOLO(ratinasegmentationmodel_path)
 
     def flatten_points(self, points):
         return [(point[0][0], point[0][1]) for point in points]
@@ -101,7 +103,7 @@ class RetinalVesselSegmentation(BaseModel):
     def __init__(self):
         super().__init__("Retinal Vessel Segmentation")
         self.model = smp.Unet(encoder_name="resnet34", encoder_weights="imagenet", in_channels=3, classes=1)
-        self.model.load_state_dict(torch.load("/home/sasi/retina/vessel/best_model.pth"))
+        self.model.load_state_dict(torch.load(ratina_vessel_state_dict))
         self.model.eval()
         self.transform = transforms.Compose([
             transforms.ToTensor(),
@@ -154,7 +156,7 @@ class RetinalVesselSegmentation(BaseModel):
 class GeneralPathologyModel(BaseModel):
     def __init__(self):
         super().__init__("General Pathology")
-        self.model = FLAIRModel(from_checkpoint=True, weights_path="/home/sasi/retina/streamlit/flair/modeling/flair_pretrained_weights/flair_resnet.pth")
+        self.model = FLAIRModel(from_checkpoint=True, weights_path=GeneralPathologyModel_path)
         self.text_categories = [
             "Normal","Age-Related Macular Degeneration", "Macular Edema", "Diabetic Retinopathy",
             "Glaucoma","Cataract","Retinal Vein Occlusion","Lesion in the Macula", 'Retinal Detachment','Hypertensive Retinopathy'

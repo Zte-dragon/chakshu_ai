@@ -56,3 +56,6 @@ coverage.xml
 # Misc
 .DS_Store
 Thumbs.db
+
+# Model weights
+model_weights/
