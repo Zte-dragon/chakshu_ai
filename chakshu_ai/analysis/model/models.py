@@ -9,9 +9,9 @@ import torch
 import segmentation_models_pytorch as smp
 from torchvision import transforms
 import base64
-GeneralPathologyModel_path = 'model_weights/flair_resnet.pth'
-ratinasegmentationmodel_path = "model_weights/best.pt"
-ratina_vessel_state_dict = "model_weights/ratina_vessel_state_dict.pth"
+GeneralPathologyModel_path = '/home/sasi/puneet/chakshu_ai_2/model_weights/flair_resnet.pth'
+ratinasegmentationmodel_path = "/home/sasi/puneet/chakshu_ai_2/model_weights/best.pt"
+ratina_vessel_state_dict = "/home/sasi/puneet/chakshu_ai_2/model_weights/ratina_vessel_state_dict.pth"
 class BaseModel(ABC):
     def __init__(self, name):
         self.name = name
