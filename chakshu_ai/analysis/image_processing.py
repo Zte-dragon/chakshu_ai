@@ -5,6 +5,9 @@ import base64
 from io import BytesIO
 from PIL import Image
 import re
+import ollama
+
+LLM_MODEL = "neural-chat"
 
 PATHOLOGIES = [
     "diabetic retinopathy", "hemorrhages", "microaneurysms", "exudates", "hard exudates", 
@@ -256,31 +259,21 @@ def llm_call_claude(system_prompt, user_prompt):
         return f"Error calling Claude API: {str(e)}"
 
 def llm_call(system_prompt, user_prompt):
-    """Make an API call to the local LLM server"""
-    url = "http://127.0.0.1:1234/v1/chat/completions"
-    payload = {
-        "model": "gemma-2-2b-it",
-        "messages": [
+    """Make an API call to the local Ollama LLM server using neural-chat model"""
+    try:
+        response = ollama.chat(model=LLM_MODEL, messages=[
             {
-                "role": "system",
-                "content": system_prompt
+                'role': 'system',
+                'content': system_prompt
             },
             {
-                "role": "user",
-                "content": user_prompt
+                'role': 'user',
+                'content': user_prompt
             }
-        ],
-        "temperature": 0.7,
-        "max_tokens": -1,
-        "stream": False
-    }
-    
-    try:
-        response = requests.post(url, json=payload)
-        response.raise_for_status()
-        return response.json()['choices'][0]['message']['content']
-    except requests.exceptions.RequestException as e:
-        return f"Error: {str(e)}"
+        ])
+        return response['message']['content']
+    except Exception as e:
+        return f"Error calling Ollama API: {str(e)}"
 
 def parse_llm_response(response):
     """Parse LLM response into key-value pairs"""
