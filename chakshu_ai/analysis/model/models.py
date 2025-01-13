@@ -9,6 +9,10 @@ import torch
 import segmentation_models_pytorch as smp
 from torchvision import transforms
 import base64
+
+# Check if CUDA is available
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f"Using device: {DEVICE}")
 GeneralPathologyModel_path = '/home/devuser/chaksuai/flair/flair_resnet.pth'
 ratinasegmentationmodel_path = "/home/devuser/chaksuai/odoc/best.pt"
 ratina_vessel_state_dict = "/home/devuser/chaksuai/vessel/best_model.pth"
@@ -38,9 +42,22 @@ class BaseModel(ABC):
         
 
 class RetinaSegmentationModel(BaseModel):
+    _instance = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            print(f"Creating new instance of {cls.__name__}")
+            cls._instance = super(RetinaSegmentationModel, cls).__new__(cls)
+            cls._instance.initialized = False
+        return cls._instance
+    
     def __init__(self):
-        super().__init__("Retina Segmentation")
-        self.model = YOLO(ratinasegmentationmodel_path)
+        if not self.initialized:
+            print(f"Initializing {self.__class__.__name__}")
+            super().__init__("Retina Segmentation")
+            self.model = YOLO(ratinasegmentationmodel_path)
+            # YOLO models handle CUDA internally, no need to explicitly move
+            self.initialized = True
 
     def flatten_points(self, points):
         return [(point[0][0], point[0][1]) for point in points]
@@ -59,14 +76,7 @@ class RetinaSegmentationModel(BaseModel):
         return min_distance, max_distance
 
     def process_image(self, image_data, is_numpy=False):
-        # if not is_numpy:
-        #     # Handle BytesIO input for backward compatibility
-        #     image = Image.open(BytesIO(image_data)).convert('RGB')  # Convert to RGB
-        #     image_np = np.array(image)
-        # else:
-        #     # Direct numpy array input
-        #     image = Image.fromarray(image_data).convert('RGB')  # Convert to RGB
-        #     image_np = np.array(image)
+
 
         image_np = self.preprocess_image_data(image_data)
 
@@ -100,15 +110,29 @@ class RetinaSegmentationModel(BaseModel):
         return processed_image, "\n".join(logs)
 
 class RetinalVesselSegmentation(BaseModel):
+    _instance = None
+    
+    # ensuring only one instance of the model is loaded
+    def __new__(cls):
+        if cls._instance is None:
+            print(f"Creating new instance of {cls.__name__}")
+            cls._instance = super(RetinalVesselSegmentation, cls).__new__(cls)
+            cls._instance.initialized = False
+        return cls._instance
+    
     def __init__(self):
-        super().__init__("Retinal Vessel Segmentation")
-        self.model = smp.Unet(encoder_name="resnet34", encoder_weights="imagenet", in_channels=3, classes=1)
-        self.model.load_state_dict(torch.load(ratina_vessel_state_dict))
-        self.model.eval()
-        self.transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
+        if not self.initialized:
+            print(f"Initializing {self.__class__.__name__}")
+            super().__init__("Retinal Vessel Segmentation")
+            self.model = smp.Unet(encoder_name="resnet34", encoder_weights="imagenet", in_channels=3, classes=1)
+            self.model.load_state_dict(torch.load(ratina_vessel_state_dict, map_location=DEVICE))
+            self.model.to(DEVICE)
+            self.model.eval()
+            self.transform = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            ])
+            self.initialized = True
 
     def process_image(self, image_data, is_numpy=False):
         # if not is_numpy:
@@ -125,13 +149,15 @@ class RetinalVesselSegmentation(BaseModel):
         # Store original size
         original_size = image_np.shape[:2][::-1]  # Convert (H,W) to (W,H)
         
-        # Preprocess the image
+        # Preprocess the image and move to GPU
         input_image = self.transform(Image.fromarray(image_np)).unsqueeze(0)  # Add batch dimension
+        input_image = input_image.to(DEVICE)
 
         # Perform segmentation
         with torch.no_grad():
             output = self.model(input_image)
-            output = torch.sigmoid(output).squeeze().cpu().numpy()
+            output = torch.sigmoid(output).squeeze()
+            output = output.cpu().numpy()  # Move back to CPU for numpy operations
 
         # Resize output back to original size if needed
         if output.shape != (original_size[1], original_size[0]):
@@ -154,24 +180,27 @@ class RetinalVesselSegmentation(BaseModel):
         return segmented_image, logs
 
 class GeneralPathologyModel(BaseModel):
+    _instance = None
+    # ensuring only one instance of the model is loaded
+    def __new__(cls):
+        if cls._instance is None:
+            print(f"Creating new instance of {cls.__name__}")
+            cls._instance = super(GeneralPathologyModel, cls).__new__(cls)
+            cls._instance.initialized = False
+        return cls._instance
+    
     def __init__(self):
-        super().__init__("General Pathology")
-        self.model = FLAIRModel(from_checkpoint=True, weights_path=GeneralPathologyModel_path)
-        self.text_categories = [
-            "Normal","Age-Related Macular Degeneration", "Macular Edema", "Diabetic Retinopathy",
-            "Glaucoma","Cataract","Retinal Vein Occlusion","Lesion in the Macula", 'Retinal Detachment','Hypertensive Retinopathy'
-        ]
+        if not self.initialized:
+            print(f"Initializing {self.__class__.__name__}")
+            super().__init__("General Pathology")
+            self.model = FLAIRModel(from_checkpoint=True, weights_path=GeneralPathologyModel_path, device=DEVICE)
+            self.text_categories = [
+                "Normal","Age-Related Macular Degeneration", "Macular Edema", "Diabetic Retinopathy",
+                "Glaucoma","Cataract","Retinal Vein Occlusion","Lesion in the Macula", 'Retinal Detachment','Hypertensive Retinopathy'
+            ]
+            self.initialized = True
 
     def process_image(self, image_data, is_numpy=False, ai_assistant_mode=False, requested_entities=None):
-        # if not is_numpy:
-        #     # Handle BytesIO input for backward compatibility
-        #     image = Image.open(BytesIO(image_data)).convert('RGB')  # Convert to RGB
-        #     image_np = np.array(image)
-        # else:
-        #     # Direct numpy array input
-        #     image = Image.fromarray(image_data).convert('RGB')  # Convert to RGB
-        #     image_np = np.array(image)
-
         image_np = self.preprocess_image_data(image_data)
 
         if ai_assistant_mode:

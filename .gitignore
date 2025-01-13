@@ -3,6 +3,7 @@
 *.pot
 *.pyc
 __pycache__/
+chakshu_ai/patient/__pycache__/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
@@ -59,4 +60,9 @@ Thumbs.db
 
 # Model weights
 model_weights/
+chakshu_ai/analysis/model/__pycache__/models.cpython-38.pyc
+
+# static files
+chakshu_ai/staticfiles/
+chakshu_ai/analysis/model/__pycache__/models.cpython-38.pyc
 chakshu_ai/analysis/model/__pycache__/models.cpython-38.pyc

@@ -15,6 +15,9 @@
 
 3. To restart Gunicorn:
    ```
+   # to commect static
+    python manage.py collectstatic --noinput
+
    sudo pkill gunicorn  # Stop all Gunicorn processes
    # Then start again with:
    sudo /home/devuser/miniconda3/envs/chaksuai/bin/gunicorn chakshu_ai.wsgi:application --workers 3 --bind 0.0.0.0:80 --daemon --access-logfile /var/log/gunicorn/access.log --error-logfile /var/log/gunicorn/error.log
