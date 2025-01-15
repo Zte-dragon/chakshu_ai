@@ -16,9 +16,9 @@
             <!-- Search Section -->
             <div class="p-4 border-b border-gray-200">
                 <div class="mb-4">
-                    <input type="text" 
-                           id="patient-search" 
-                           placeholder="Search patient by name or ID..." 
+                    <input type="text"
+                           id="patient-search"
+                           placeholder="Search patient by name or ID..."
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
                 </div>
                 <div id="search-results" class="max-h-48 overflow-y-auto"></div>
@@ -37,7 +37,7 @@
             </div>
 
             <!-- Conversations List -->
-            <div class="flex-1 overflow-y-auto">
+            <div id="conversation-list" class="flex-1 overflow-y-auto hidden">
                 <div class="p-4">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-semibold">Conversations</h3>
@@ -163,11 +163,6 @@
 
     // New conversation function
     async function startNewConversation() {
-        if (!selectedPatientId) {
-            alert('Please select a patient first');
-            return;
-        }
-        
         try {
             const response = await fetch('/analysis/new_conversation/', {
                 method: 'POST',
@@ -204,6 +199,7 @@
                 // Only show and populate details if we have valid patient data
                 if (patientDetails && patientDetails.id) {
                     document.getElementById('patient-details').classList.remove('hidden');
+                    document.getElementById('conversation-list').classList.remove('hidden');
                     document.getElementById('patient-id').textContent = patientDetails.id;
                     document.getElementById('patient-name').textContent = patientDetails.name;
                     document.getElementById('patient-age').textContent = patientDetails.age;
@@ -234,7 +230,7 @@
             const patients = await response.json();
             
             const resultsHtml = patients.map(patient => `
-                <div class="p-2 hover:bg-gray-100 cursor-pointer rounded-md" 
+                <div class="p-2 hover:bg-gray-100 cursor-pointer rounded-md"
                      onclick="selectPatient(${patient.id})">
                     <div class="font-medium">${patient.name}</div>
                     <div class="text-xs text-gray-600">ID: ${patient.id}</div>
@@ -263,6 +259,7 @@
             // Only show and update details if we have valid patient data
             if (patient && patient.id) {
                 document.getElementById('patient-details').classList.remove('hidden');
+                document.getElementById('conversation-list').classList.remove('hidden');
                 document.getElementById('patient-id').textContent = patient.id;
                 document.getElementById('patient-name').textContent = patient.name;
                 document.getElementById('patient-age').textContent = patient.age;
@@ -270,6 +267,7 @@
                 document.getElementById('patient-contact').textContent = patient.contact_number;
             } else {
                 document.getElementById('patient-details').classList.add('hidden');
+                document.getElementById('conversation-list').classList.add('hidden');
             }
             
             // Clear search
@@ -387,7 +385,7 @@
     document.querySelector('textarea[name="prompt"]').addEventListener('input', adjustTextareaHeight);
 
     // Handle form submission with AJAX
-    document.querySelector('form').addEventListener('submit', async (e) => {
+    document.querySelector('form[enctype="multipart/form-data"]').addEventListener('submit', async (e) => {
         e.preventDefault();
         
         // Show loading animation immediately
@@ -426,11 +424,11 @@
         `;
         chatMessages.insertAdjacentHTML('beforeend', userMessageHtml);
         scrollToBottom();
-        
+
         try {
             const form = e.target;
             const formData = new FormData(form);
-            
+
             const response = await fetch(window.location.pathname, {
                 method: 'POST',
                 body: formData,
@@ -438,21 +436,21 @@
                     'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
                 }
             });
-            
+
             const html = await response.text();
             const parser = new DOMParser();
             const doc = parser.parseFromString(html, 'text/html');
-            
+
             // Update chat messages
             const newChatMessages = doc.getElementById('chat-messages');
             if (newChatMessages) {
                 document.getElementById('chat-messages').innerHTML = newChatMessages.innerHTML;
             }
-            
+
             // Clear the form
             form.reset();
             document.getElementById('file-label').textContent = '';
-            
+
             // Scroll to bottom
             scrollToBottom();
         } catch (error) {
@@ -494,7 +492,7 @@
         const url = arguments[0];
         // Only show loading for specific endpoints
         if (typeof url === 'string' && (
-            url.includes('/analysis/conversation/') || 
+            url.includes('/analysis/conversation/') ||
             url.includes('/analysis/new_conversation/') ||
             url.includes('/analysis/patient_conversations/')
         )) {

@@ -193,7 +193,7 @@ class GeneralPathologyModel(BaseModel):
         if not self.initialized:
             print(f"Initializing {self.__class__.__name__}")
             super().__init__("General Pathology")
-            self.model = FLAIRModel(from_checkpoint=True, weights_path=GeneralPathologyModel_path, device=DEVICE)
+            self.model = FLAIRModel(from_checkpoint=True, weights_path=GeneralPathologyModel_path)
             self.text_categories = [
                 "Normal","Age-Related Macular Degeneration", "Macular Edema", "Diabetic Retinopathy",
                 "Glaucoma","Cataract","Retinal Vein Occlusion","Lesion in the Macula", 'Retinal Detachment','Hypertensive Retinopathy'
