@@ -107,12 +107,16 @@ def analysis_view(request):
                 except Conversation.DoesNotExist:
                     pass
 
-            context = {
-                'conversation': conversation_messages,
-                'error_message': 'Please select a patient first',
-                'should_scroll': False
-            }
-            return render(request, 'analysis/analysis.html', context)
+            error_message = 'Please select a patient first'
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'error': error_message}, status=400)
+            else:
+                context = {
+                    'conversation': conversation_messages,
+                    'error_message': error_message,
+                    'should_scroll': False
+                }
+                return render(request, 'analysis/analysis.html', context)
         
         patient = get_object_or_404(Patient, id=patient_id)
         conversation = None
@@ -191,17 +195,29 @@ def analysis_view(request):
             'contact_number': patient.contact_number,
         }
         
-        context = {
-            'conversation': [{
-                'type': msg.message_type,
-                'text': msg.text,
-                'image': msg.image
-            } for msg in messages],
-            'should_scroll': True,
-            'patient_id': patient_id,
-            'patient_details': patient_details
-        }
-        return render(request, 'analysis/analysis.html', context)
+        # Check if this is an AJAX request
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            # For AJAX requests, return just the last assistant message
+            last_message = messages.filter(message_type='assistant').last()
+            if last_message:
+                return JsonResponse({
+                    'text': last_message.text,
+                    'image': last_message.image
+                })
+            return JsonResponse({'error': 'No response generated'}, status=500)
+        else:
+            # For regular requests, return the full page
+            context = {
+                'conversation': [{
+                    'type': msg.message_type,
+                    'text': msg.text,
+                    'image': msg.image
+                } for msg in messages],
+                'should_scroll': True,
+                'patient_id': patient_id,
+                'patient_details': patient_details
+            }
+            return render(request, 'analysis/analysis.html', context)
 
     # GET request - always start with a clean slate
     request.session.pop('active_conversation', None)

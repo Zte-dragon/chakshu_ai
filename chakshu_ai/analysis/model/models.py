@@ -24,21 +24,46 @@ class BaseModel(ABC):
     def process_image(self, image_data, is_numpy=False):
         pass
     
-    def preprocess_image_data(self, image_data):
+    def preprocess_image_data(self, image_data, target_size=(512, 512)):
+        """
+        Preprocess image data with center cropping to maintain aspect ratio
+        Args:
+            image_data: Input image as numpy array, base64 string, or bytes
+            target_size: Tuple of (width, height) for desired output size
+        Returns:
+            Preprocessed image as numpy array
+        """
+        # Convert input to PIL Image
         if isinstance(image_data, np.ndarray):
-            # Already a numpy array
-            return image_data
+            image = Image.fromarray(image_data).convert('RGB')
         elif isinstance(image_data, str):  # base64
-            # Convert base64 to numpy
             image_bytes = base64.b64decode(image_data)
             image = Image.open(BytesIO(image_bytes)).convert('RGB')
-            return np.array(image)
         elif isinstance(image_data, bytes):  # raw binary
-            # Convert binary to numpy
             image = Image.open(BytesIO(image_data)).convert('RGB')
-            return np.array(image)
         else:
             raise ValueError("Unsupported image format")
+
+        # Calculate dimensions for center crop
+        width, height = image.size
+        target_ratio = target_size[0] / target_size[1]
+        current_ratio = width / height
+
+        if current_ratio > target_ratio:
+            # Image is wider than target ratio
+            new_width = int(height * target_ratio)
+            left = (width - new_width) // 2
+            image = image.crop((left, 0, left + new_width, height))
+        else:
+            # Image is taller than target ratio
+            new_height = int(width / target_ratio)
+            top = (height - new_height) // 2
+            image = image.crop((0, top, width, top + new_height))
+
+        # Resize to target size
+        image = image.resize(target_size, Image.Resampling.LANCZOS)
+        
+        return np.array(image)
         
 
 class RetinaSegmentationModel(BaseModel):
@@ -78,7 +103,7 @@ class RetinaSegmentationModel(BaseModel):
     def process_image(self, image_data, is_numpy=False):
 
 
-        image_np = self.preprocess_image_data(image_data)
+        image_np = self.preprocess_image_data(image_data, target_size=(512, 512))  # Square aspect ratio for YOLO
 
         results = self.model.predict(image_np, retina_masks=True, show_boxes=False)
 
@@ -144,7 +169,7 @@ class RetinalVesselSegmentation(BaseModel):
         #     image = Image.fromarray(image_data).convert('RGB')  # Convert to RGB
         #     image_np = np.array(image)
 
-        image_np = self.preprocess_image_data(image_data)
+        image_np = self.preprocess_image_data(image_data, target_size=(512, 512))  # Square aspect ratio for UNet
         
         # Store original size
         original_size = image_np.shape[:2][::-1]  # Convert (H,W) to (W,H)
@@ -201,7 +226,7 @@ class GeneralPathologyModel(BaseModel):
             self.initialized = True
 
     def process_image(self, image_data, is_numpy=False, ai_assistant_mode=False, requested_entities=None):
-        image_np = self.preprocess_image_data(image_data)
+        image_np = self.preprocess_image_data(image_data, target_size=(512, 512))  # Square aspect ratio for FLAIR
 
         if ai_assistant_mode:
             if requested_entities == 'ALL':

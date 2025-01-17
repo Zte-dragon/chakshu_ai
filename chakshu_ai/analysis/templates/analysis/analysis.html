@@ -275,7 +275,11 @@
             document.getElementById('search-results').innerHTML = '';
             
             // Clear chat messages and active conversation
-            document.getElementById('chat-messages').innerHTML = '';
+            const chatMessagesContainer = document.getElementById('chat-messages');
+            chatMessagesContainer.innerHTML = `
+                <div class="max-w-3xl mx-auto space-y-4 mb-24">
+                </div>
+            `;
             fetch('/analysis/clear_conversation/', {
                 method: 'POST',
                 headers: {
@@ -332,7 +336,12 @@
                 </div>
             `).join('');
             
-            document.getElementById('chat-messages').innerHTML = chatHtml;
+            const chatMessagesContainer = document.getElementById('chat-messages');
+            chatMessagesContainer.innerHTML = `
+                <div class="max-w-3xl mx-auto space-y-4 mb-24">
+                    ${chatHtml}
+                </div>
+            `;
             scrollToBottom();
         } catch (error) {
             console.error('Error loading conversation:', error);
@@ -414,15 +423,33 @@
         // Add user message to chat immediately
         const form = e.target;
         const prompt = form.querySelector('textarea[name="prompt"]').value;
-        const chatMessages = document.getElementById('chat-messages').querySelector('.max-w-3xl');
-        const userMessageHtml = `
-            <div class="flex justify-end mb-4">
-                <div class="bg-gray-500 text-white rounded-lg px-4 py-3 max-w-md shadow-lg">
-                    <p class="text-sm">User: ${prompt}</p>
+        const chatMessagesContainer = document.getElementById('chat-messages');
+        const chatMessages = chatMessagesContainer.querySelector('.max-w-3xl');
+        
+        if (!chatMessages) {
+            // If .max-w-3xl doesn't exist, create it
+            const newContainer = document.createElement('div');
+            newContainer.className = 'max-w-3xl mx-auto space-y-4 mb-24';
+            chatMessagesContainer.appendChild(newContainer);
+            
+            const userMessageHtml = `
+                <div class="flex justify-end mb-4">
+                    <div class="bg-gray-500 text-white rounded-lg px-4 py-3 max-w-md shadow-lg">
+                        <p class="text-sm">User: ${prompt}</p>
+                    </div>
                 </div>
-            </div>
-        `;
-        chatMessages.insertAdjacentHTML('beforeend', userMessageHtml);
+            `;
+            newContainer.insertAdjacentHTML('beforeend', userMessageHtml);
+        } else {
+            const userMessageHtml = `
+                <div class="flex justify-end mb-4">
+                    <div class="bg-gray-500 text-white rounded-lg px-4 py-3 max-w-md shadow-lg">
+                        <p class="text-sm">User: ${prompt}</p>
+                    </div>
+                </div>
+            `;
+            chatMessages.insertAdjacentHTML('beforeend', userMessageHtml);
+        }
         scrollToBottom();
 
         try {
@@ -444,6 +471,13 @@
             // Update chat messages
             const newChatMessages = doc.getElementById('chat-messages');
             if (newChatMessages) {
+                const chatMessagesContainer = document.getElementById('chat-messages');
+                // Ensure we have the container with proper classes
+                if (!chatMessagesContainer.querySelector('.max-w-3xl')) {
+                    const newContainer = document.createElement('div');
+                    newContainer.className = 'max-w-3xl mx-auto space-y-4 mb-24';
+                    chatMessagesContainer.appendChild(newContainer);
+                }
                 document.getElementById('chat-messages').innerHTML = newChatMessages.innerHTML;
             }
 
